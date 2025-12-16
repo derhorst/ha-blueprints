@@ -66,12 +66,7 @@ action:
                   - "{{ is_state(primary_light, 'off') }}"
                 sequence:
                   - service: light.toggle
-                    target:
-                      entity_id: "{{ primary_light }}"
-            default:
-              # Otherwise toggle all remaining lights
-              - service: light.toggle
-                target:
+                data:
                   entity_id: "{{ secondary_lights }}"
 
       # ───── OFF (bottom button short press) → turn everything off
