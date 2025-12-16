@@ -66,8 +66,10 @@ action:
                   - "{{ is_state(primary_light, 'off') }}"
                 sequence:
                   - service: light.toggle
-                data:
-                  entity_id: "{{ secondary_lights }}"
+                    entity_id: "{{ primary_light }}"
+            default:
+              - service: light.toggle
+                entity_id: "{{ secondary_lights }}"
 
       # ───── OFF (bottom button short press) → turn everything off
       - conditions:
@@ -76,7 +78,7 @@ action:
           - "{{ endpoint == 1 }}"
         sequence:
           - service: light.turn_off
-            target: !input lights
+            entity_id: "{{ lights_list }}"
             data:
               transition: 1
 
@@ -92,7 +94,7 @@ action:
                   value_template: "{{ true }}"
               sequence:
                 - service: light.turn_on
-                  target: !input lights
+                  entity_id: "{{ lights_list }}"
                   data:
                     brightness_step_pct: 10
                     transition: !input hold_time
@@ -110,7 +112,7 @@ action:
                   value_template: "{{ true }}"
               sequence:
                 - service: light.turn_on
-                  target: !input lights
+                  entity_id: "{{ lights_list }}"
                   data:
                     brightness_step_pct: -10
                     transition: !input hold_time
