@@ -1,10 +1,11 @@
 blueprint:
-  name: ZHA – IKEA STYRBAR (4-button) Remote for Lights (Split Toggle)
+  name: ZHA – IKEA STYRBAR (4-button) Remote for Lights + Scenes
   description: >
-    First ON press toggles the first light in the selection.
-    Second ON press toggles all remaining lights.
-    Based on IKEA STYRBAR / Remote Control N2 (E2001/E2002) using ZHA.
+    Control lights using an IKEA STYRBAR / Remote Control N2 (E2001/E2002)
+    via ZHA. Supports on/off, smooth dimming (up/down long press),
+    and scene triggering on left/right button presses.
   domain: automation
+  source_url: https://community.home-assistant.io/t/zha-ikea-four-button-remote-styrbar-for-lights-e2001-e2002/384482
 
   input:
     remote:
@@ -17,11 +18,26 @@ blueprint:
 
     lights:
       name: Light(s)
-      description: Select multiple lights. The first will be treated as "primary".
       selector:
-        entity:
-          domain: light
-          multiple: true
+        target:
+          entity:
+            domain: light
+
+    force_brightness:
+      name: Force brightness on ON
+      default: false
+      selector:
+        boolean:
+
+    brightness:
+      name: On brightness
+      default: 50
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
 
     hold_time:
       name: Hold repeat time
@@ -32,6 +48,20 @@ blueprint:
           max: 1.5
           step: 0.1
           unit_of_measurement: seconds
+
+    scene_left:
+      name: Left button – scene
+      default: null
+      selector:
+        entity:
+          domain: scene
+
+    scene_right:
+      name: Right button – scene
+      default: null
+      selector:
+        entity:
+          domain: scene
 
 mode: restart
 max_exceeded: silent
@@ -46,9 +76,8 @@ variables:
   cmd: "{{ trigger.event.data.command }}"
   cluster: "{{ trigger.event.data.cluster_id }}"
   endpoint: "{{ trigger.event.data.endpoint_id }}"
-  lights_list: "{{ expand(lights) | map(attribute='entity_id') | list }}"
-  primary_light: "{{ lights_list[0] if lights_list | length > 0 else none }}"
-  secondary_lights: "{{ lights_list[1:] }}"
+  args: "{{ trigger.event.data.args }}"
+  force_brightness: !input force_brightness
 
 action:
   - choose:
@@ -60,25 +89,27 @@ action:
           - "{{ endpoint == 1 }}"
         sequence:
           - choose:
-              # If primary light is off → toggle it
-              - conditions:
-                  - "{{ primary_light is not none }}"
-                  - "{{ is_state(primary_light, 'off') }}"
+              - conditions: "{{ force_brightness }}"
                 sequence:
-                  - service: light.toggle
-                    entity_id: "{{ primary_light }}"
+                  - service: light.turn_on
+                    target: !input lights
+                    data:
+                      brightness_pct: !input brightness
+                      transition: 1
             default:
-              - service: light.toggle
-                entity_id: "{{ secondary_lights }}"
+              - service: light.turn_on
+                target: !input lights
+                data:
+                  transition: 1
 
-      # ───── OFF (bottom button short press) → turn everything off
+      # ───── OFF (bottom button short press)
       - conditions:
           - "{{ cmd == 'off' }}"
           - "{{ cluster == 6 }}"
           - "{{ endpoint == 1 }}"
         sequence:
           - service: light.turn_off
-            entity_id: "{{ lights_list }}"
+            target: !input lights
             data:
               transition: 1
 
@@ -94,7 +125,7 @@ action:
                   value_template: "{{ true }}"
               sequence:
                 - service: light.turn_on
-                  entity_id: "{{ lights_list }}"
+                  target: !input lights
                   data:
                     brightness_step_pct: 10
                     transition: !input hold_time
@@ -112,8 +143,32 @@ action:
                   value_template: "{{ true }}"
               sequence:
                 - service: light.turn_on
-                  entity_id: "{{ lights_list }}"
+                  target: !input lights
                   data:
                     brightness_step_pct: -10
                     transition: !input hold_time
                 - delay: !input hold_time
+
+      # ───── LEFT short → scene
+      - conditions:
+          - "{{ cmd == 'press' }}"
+          - "{{ cluster == 5 }}"
+          - "{{ args == [257, 13, 0] }}"
+        sequence:
+          - condition: template
+            value_template: "{{ scene_left is not none }}"
+          - service: scene.turn_on
+            target:
+              entity_id: !input scene_left
+
+      # ───── RIGHT short → scene
+      - conditions:
+          - "{{ cmd == 'press' }}"
+          - "{{ cluster == 5 }}"
+          - "{{ args == [256, 13, 0] }}"
+        sequence:
+          - condition: template
+            value_template: "{{ scene_right is not none }}"
+          - service: scene.turn_on
+            target:
+              entity_id: !input scene_right
