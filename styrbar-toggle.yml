@@ -1,3 +1,4 @@
+```yaml
 blueprint:
   name: ZHA – IKEA STYRBAR (4-button) Remote for Lights (Split Toggle)
   description: >
@@ -19,9 +20,9 @@ blueprint:
       name: Light(s)
       description: Select multiple lights. The first will be treated as "primary".
       selector:
-        target:
-          entity:
-            domain: light
+        entity:
+          domain: light
+          multiple: true
 
     hold_time:
       name: Hold repeat time
@@ -46,7 +47,7 @@ variables:
   cmd: "{{ trigger.event.data.command }}"
   cluster: "{{ trigger.event.data.cluster_id }}"
   endpoint: "{{ trigger.event.data.endpoint_id }}"
-  lights_list: "{{ expand(!input lights) | map(attribute='entity_id') | list }}"
+  lights_list: "{{ expand(lights) | map(attribute='entity_id') | list }}"
   primary_light: "{{ lights_list[0] if lights_list | length > 0 else none }}"
   secondary_lights: "{{ lights_list[1:] }}"
 
@@ -120,3 +121,4 @@ action:
                     brightness_step_pct: -10
                     transition: !input hold_time
                 - delay: !input hold_time
+```
