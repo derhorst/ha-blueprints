@@ -120,4 +120,3 @@ action:
                     brightness_step_pct: -10
                     transition: !input hold_time
                 - delay: !input hold_time
-```
